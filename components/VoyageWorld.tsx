@@ -124,7 +124,7 @@ const CHAPTER_LIGHTS: LightDef[][] = [
 ];
 
 /* --------------------------------------------------------------- the rig */
-function Rig({ tier }: { tier: Tier }) {
+function Rig({ tier, multisampling }: { tier: Tier; multisampling: number }) {
   const { camera, scene, gl, size, invalidate } = useThree();
   const skyMat = useMemo(() => createSkyMaterial(), []);
   const normals = useMemo(() => {
@@ -358,7 +358,8 @@ function Rig({ tier }: { tier: Tier }) {
       <group ref={boat}><Suspense fallback={null}><Boat /></Suspense></group>
       <Islands />
       <Space />
-      <EffectComposer key={tier.msaa} multisampling={tier.msaa}>
+      {/* Keep the composer and its buffers mounted when adaptive quality changes. */}
+      <EffectComposer multisampling={multisampling}>
         <Bloom mipmapBlur luminanceThreshold={0.95} luminanceSmoothing={0.25} intensity={tier.bloom} radius={0.72} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         <Vignette eskil={false} offset={0.18} darkness={0.55} />
@@ -389,10 +390,10 @@ export default function VoyageWorld() {
         <PerformanceMonitor
           flipflops={3}
           onDecline={() => setTierIdx((t) => Math.max(0, t - 1))}
-          onIncline={() => setTierIdx((t) => Math.min(start, t + 1))}
           onFallback={() => setTierIdx(0)}
         />
-        <Rig tier={tier} />
+        {/* MSAA stays at the initial device setting; other costs can scale down. */}
+        <Rig tier={tier} multisampling={TIERS[start].msaa} />
       </Canvas>
     </div>
   );
