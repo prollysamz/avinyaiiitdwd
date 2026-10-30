@@ -27,9 +27,9 @@ function Earth() {
     const portrait = state.size.width / state.size.height < 0.8;
     // Keep the globe in the open upper portion of a portrait screen, clear of
     // the reading panel, rather than letting its centre sit off-screen.
-    if (portrait) globe.current.position.copy(portraitPosition.set(8, 33, -130).applyMatrix4(state.camera.matrixWorld));
+    if (portrait) globe.current.position.copy(portraitPosition.set(-2, 30, -150).applyMatrix4(state.camera.matrixWorld));
     else globe.current.position.copy(SPACE.earth);
-    globe.current.scale.setScalar(portrait ? 0.52 : 1);
+    globe.current.scale.setScalar(portrait ? 0.44 : 1);
     if (surface.current) surface.current.opacity = world.spaceK;
   });
   return (
@@ -147,7 +147,7 @@ function FlightAstronaut() {
     const portrait = state.size.width / state.size.height < 0.8;
     // Portrait framing follows the camera through the orbital chapter, keeping
     // the figure above the panel even on a shorter phone screen.
-    const home = portrait ? portraitPosition.set(1, 7, -30).applyMatrix4(state.camera.matrixWorld) : SPACE.astronaut;
+    const home = portrait ? portraitPosition.set(1.1, 6.2, -30).applyMatrix4(state.camera.matrixWorld) : SPACE.astronaut;
     rig.current.position.set(home.x + Math.sin(t * .31) * .65 + a * 14 + state.pointer.x * .25, home.y + Math.sin(t * .47) * .5 + a * 6, home.z + Math.cos(t * .23) * .45 - a * 30);
     rig.current.rotation.set(.12 + Math.sin(t * .19) * .1, -.35 + Math.sin(t * .17) * .18, .25 + Math.sin(t * .29) * .12);
   });

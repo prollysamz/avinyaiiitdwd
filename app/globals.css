@@ -848,4 +848,7 @@ h2 {
   .island { min-height: 0; }
   .island-scene { position: relative; height: auto; min-height: 0; display: block; padding: 60svh 20px 64px; overflow: visible; }
   .chapter-card { width: 100%; max-width: 440px; }
+  .hack { min-height: 0; }
+  .hack-scene { position: relative; height: auto; min-height: 0; display: block; padding: 58svh 20px 72px; overflow: visible; }
+  .hack-card { width: 100%; max-width: 440px; }
 }
