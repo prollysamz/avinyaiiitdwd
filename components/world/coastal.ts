@@ -9,9 +9,9 @@ type Shader = { vertexShader: string; fragmentShader: string; uniforms: Record<s
  * cliffs retain their grain instead of stretching a top-down UV into stripes. */
 export function useCoastalSurface(kind: Surface) {
   const textures = useTexture([
-    `/textures/coast/${kind}-color.png`,
-    `/textures/coast/${kind}-normal.png`,
-    `/textures/coast/${kind}-roughness.png`,
+    `/textures/coast/${kind}-color.jpg`,
+    `/textures/coast/${kind}-normal.jpg`,
+    `/textures/coast/${kind}-roughness.jpg`,
   ]);
   return useMemo(() => {
     textures.forEach((t, i) => {

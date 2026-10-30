@@ -40,6 +40,9 @@ function detectTier(): number {
 const v3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 /** `boat` = how far right of the view axis the boat sails, keeping it clear of the left-hand copy column. */
 interface Pose { pos: THREE.Vector3; look: THREE.Vector3; phase: number; boat: number }
+/** How far the camera backs off along its sight line on the narrowest (portrait) screens, so a whole island fits. */
+const PORTRAIT_PULL = 40;
+
 const POSES = {
   heroA: { pos: v3(0, 3.5, 22), look: v3(1, 1.5, -30), phase: 0, boat: 0.9 },
   heroB: { pos: v3(0, 3.7, 12), look: v3(3, 1.8, -38), phase: 0, boat: 1.6 },
@@ -213,11 +216,16 @@ function Rig({ tier }: { tier: Tier }) {
     if (keys.current) samplePose(window.scrollY, keys.current, goal, reduced);
     else { goal.pos.copy(POSES.heroA.pos); goal.look.copy(POSES.heroA.look); goal.phase = 0; goal.boat = POSES.heroA.boat; }
 
-    // narrow screens: pull back and recentre so each island still fits the frame
+    // Narrow screens: the islands lie to starboard, so turn further toward them (a portrait frame is too
+    // narrow to keep them off-axis), pull back so each fits the width, and aim a little low so the island
+    // sits in the upper half, above the chapter text that scrolls up from the bottom.
     const aspect = size.width / size.height;
     const k = THREE.MathUtils.clamp(aspect / 1.25, 0.35, 1);
-    goal.look.x = goal.pos.x + (goal.look.x - goal.pos.x) * (0.45 + 0.55 * k);
-    goal.pos.z += (1 - k) * 9;
+    goal.look.x = goal.pos.x + (goal.look.x - goal.pos.x) * (1 + (1 - k) * 0.95);
+    tmp.aim.subVectors(goal.pos, goal.look).setY(0).normalize();
+    goal.pos.addScaledVector(tmp.aim, (1 - k) * PORTRAIT_PULL);
+    goal.pos.y += (1 - k) * 4;
+    goal.look.y -= (1 - k) * 16;
     if (!reduced) {
       goal.pos.x += state.pointer.x * 0.5 * k;
       goal.pos.y += state.pointer.y * 0.25 + Math.sin(world.time * 0.55) * 0.05;
@@ -312,8 +320,8 @@ function Rig({ tier }: { tier: Tier }) {
     tmp.boatSide = THREE.MathUtils.damp(tmp.boatSide, goal.boat, 2, dt);
     tmp.fwd.set(smoothLook.x - camera.position.x, 0, smoothLook.z - camera.position.z).normalize();
     tmp.right.set(-tmp.fwd.z, 0, tmp.fwd.x);
-    const dist = 15.5 + (1 - k) * 8;
-    boat.current.position.copy(camera.position).addScaledVector(tmp.fwd, dist).addScaledVector(tmp.right, tmp.boatSide * k + (1 - k) * 1.5);
+    const dist = 15.5 + (1 - k) * (8 + PORTRAIT_PULL);
+    boat.current.position.copy(camera.position).addScaledVector(tmp.fwd, dist).addScaledVector(tmp.right, tmp.boatSide * k);
     boat.current.position.y = 0;
     // All islands lie to starboard. Stay west of their entire shoreline envelope,
     // including bow length, rather than sailing along the camera's sight line.

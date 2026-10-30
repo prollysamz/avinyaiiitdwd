@@ -105,8 +105,12 @@ for index, kind in enumerate(("sand", "rock", "ground", "concrete")):
             lib._bake(plane, bake, normal_space="TANGENT")
         else:
             lib._bake(plane, bake)
-        image.filepath_raw = os.path.join(OUT, kind + "-" + suffix + ".png")
-        image.file_format = "PNG"
+        # Ship 1024px JPEGs: the surfaces tile every four metres, so 1024px is still ~4 mm a pixel,
+        # and the full 2048px PNG set was ~50 MB of first-visit download.
+        image.scale(1024, 1024)
+        image.filepath_raw = os.path.join(OUT, kind + "-" + suffix + ".jpg")
+        image.file_format = "JPEG"
+        bpy.context.scene.render.image_settings.quality = 92 if suffix == "normal" else 84
         image.save()
         image.pack()
     print("COAST_BAKED", kind, flush=True)

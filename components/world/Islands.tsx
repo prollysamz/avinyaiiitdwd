@@ -2,7 +2,7 @@
 
 import { RoundedBox, Sparkles, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Suspense, useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { mergeGeometries, mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
@@ -438,7 +438,6 @@ function buildTowers() {
 }
 
 /** Blender-authored skyline (blender/city.py). Tower_0/1/2 get the tiling lit-window emissive map in each neon hue. */
-useGLTF.preload("/models/city.glb");
 /** A searchlight shaft: bright at the lamp, fading out along its length, so it reads as light in haze, not a solid cone. */
 const beamVertex = /* glsl */ `varying float vAlong; void main(){ vAlong = uv.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const beamFragment = /* glsl */ `varying float vAlong; uniform vec3 uColor; uniform float uOpacity;
@@ -576,7 +575,6 @@ function carnivalColor(x: number, z: number, h: number, ny: number) {
 }
 
 /** Blender-authored wheel (blender/wheel.py): static frame, a rotor that spins, and 12 gondolas kept upright. */
-useGLTF.preload("/models/wheel-realistic.glb");
 function FerrisWheel() {
   const { scene } = useGLTF("/models/wheel-realistic.glb");
   const model = useMemo(() => {
@@ -790,12 +788,24 @@ function Carnival() {
   );
 }
 
+/**
+ * Each island streams in behind its own Suspense boundary, so the sky, sea and boat appear at once
+ * instead of waiting for every island's textures. The first island loads immediately; the farther
+ * two follow once the page is idle, which keeps the first visit's critical download small.
+ */
 export default function Islands() {
+  const [later, setLater] = useState(false);
+  useEffect(() => {
+    const go = () => setLater(true);
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+    const id = w.requestIdleCallback ? w.requestIdleCallback(go, { timeout: 2500 }) : window.setTimeout(go, 1200);
+    return () => { if (!w.requestIdleCallback) window.clearTimeout(id); };
+  }, []);
   return (
     <>
-      <Emerge index={0}><Outpost /></Emerge>
-      <Emerge index={1}><Pandemonium /></Emerge>
-      <Emerge index={2}><Carnival /></Emerge>
+      <Suspense fallback={null}><Emerge index={0}><Outpost /></Emerge></Suspense>
+      {later && <Suspense fallback={null}><Emerge index={1}><Pandemonium /></Emerge></Suspense>}
+      {later && <Suspense fallback={null}><Emerge index={2}><Carnival /></Emerge></Suspense>}
     </>
   );
 }
