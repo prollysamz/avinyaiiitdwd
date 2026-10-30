@@ -203,8 +203,9 @@ def slit(name, w, h, loc, facing):
 
 
 # ---- plinth with stepped, battered terraces
-taper_box("Plinth", 7.6, 5.8, 0.9, 0.93, (0, 0, 0), M["dark"], bevel=0.05)
-taper_box("Terrace", 6.9, 5.1, 0.7, 0.94, (0, 0, 0.9), M["sand"], bevel=0.04)
+# Wide enough that every structure (windtraps, annex, flanking towers) stands on masonry, not on air.
+taper_box("Plinth", 12.0, 6.6, 0.9, 0.95, (0.6, 0, 0), M["dark"], bevel=0.05)
+taper_box("Terrace", 11.2, 5.9, 0.7, 0.96, (0.6, 0, 0.9), M["sand"], bevel=0.04)
 
 # ---- great keep (tall, battered, crowned)
 KX, KY = -1.9, -0.7
@@ -237,8 +238,9 @@ bmesh.ops.create_cone(bm, cap_ends=True, segments=24, radius1=0.5, radius2=0.5, 
 arch = S.mesh("GateArch", bm, M["iron"], loc=(HX + 1.8, HY + 1.45, 2.95))
 arch.rotation_euler = (math.radians(90), 0, 0)
 add(arch)
-for i in range(6):  # stairs climbing to the gate: the highest tread is nearest the door
-    box(f"Step{i}", (2.0 - i * 0.04, 0.34, 0.14), (HX + 1.8, HY + 1.62 + (5 - i) * 0.3, 1.55 + 0.13 * i), mat=M["dark"], bevel=0.01)
+for i in range(6):  # solid flight from the terrace edge down to the sand; each tread is built up from the ground
+    top = 1.6 - (i + 1) * 1.6 / 6
+    box(f"Step{i}", (2.0, 0.3, max(top, 0.08)), (HX + 1.8, 2.95 + 0.15 + i * 0.3, max(top, 0.08) / 2), mat=M["dark"], bevel=0.01)
 
 # ---- annex + solar field
 taper_box("Annex", 2.6, 2.3, 1.5, 0.92, (HX + 4.1, HY - 0.2, 1.6), M["sand"], bevel=0.04)
@@ -277,11 +279,13 @@ bmesh.ops.create_uvsphere(bm, u_segments=32, v_segments=10, radius=0.85)
 for v in list(bm.verts):
     if v.co.z > -0.05 * 0.85:
         bm.verts.remove(v)
-dish = S.mesh("Dish", bm, M["steel"], loc=(dx + 0.9, dy - 0.3, dz + 0.55))
+dish = S.mesh("Dish", bm, M["steel"], loc=(dx + 0.3, dy - 0.3, dz + 0.75))
+dish.scale = (0.7, 0.7, 0.7)
 dish.rotation_euler = (math.radians(40), 0, math.radians(30))
 S.modifier(dish, "SOLIDIFY", thickness=0.02, offset=1.0)
 add(dish)
-add(S.cyl("DishFeed", 0.015, 0.015, 0.7, (dx + 0.9, dy - 0.3, dz + 0.95), material=M["iron"], verts=8))
+# the dish sits on a squat pedestal standing on the keep roof
+add(S.cyl("DishPedestal", 0.12, 0.16, 0.7, (dx + 0.3, dy - 0.3, dz + 0.1), material=M["iron"], verts=12))
 for k, (ox, oy) in enumerate([(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)]):
     pass
 for z0 in range(5):
@@ -306,7 +310,7 @@ add(S.tube("PipeSide", [(HX + 2.6, HY + 1.38, 3.4), (HX + 2.6, HY + 1.38, 1.7)],
 
 # ---- banners
 for bx, col in ((HX - 1.3, "banner"), (HX + 3.4, "banner")):
-    add(S.cyl(f"Pole{bx}", 0.03, 0.03, 2.2, (bx, HY + 1.4, 2.95), material=M["iron"], verts=8))
+    add(S.cyl(f"Pole{bx}", 0.03, 0.03, 2.4, (bx, HY + 1.4, 2.8), material=M["iron"], verts=8))  # stands on the terrace (z 1.6)
     bm = bmesh.new()
     vs = {(i, j): bm.verts.new((bx + 0.0, HY + 1.4 + 0.06 * math.sin(i * 0.9) * (i / 7), 3.9 - j * 0.5 / 4 * 4 * 0.5 - 0.02 - i * 0.0)) for i in range(2) for j in range(5)}
     vs = {}
@@ -337,8 +341,8 @@ def rock(name, loc, size, seed):
     return add(o)
 
 
-for i, (rx, ry, rs) in enumerate([(-4.6, -1.8, 1.0), (-4.9, -0.2, 0.8), (4.6, -2.6, 0.9), (5.2, 0.2, 0.7), (-3.0, 3.1, 0.7), (1.5, 3.5, 0.6), (3.8, 3.2, 0.8), (-0.2, -3.6, 0.9), (2.6, -3.5, 0.7), (-2.4, -3.3, 0.8)]):
-    rock(f"Rock{i}", (rx, ry, 0.1), (rs * 1.1, rs * 0.9, rs * 0.8), i + 3)
+# (The boulders, sand mounds and fallen blocks that once ringed a smaller plinth are gone: with the wider
+# plinth they sat half on the masonry. The terrain in the web scene provides the ground around the fort.)
 
 # ---- drifted sand banked against walls + fallen masonry
 def drift(name, loc, size, seed):
@@ -354,12 +358,6 @@ def drift(name, loc, size, seed):
     return add(o)
 
 
-for i, (dx_, dy_, sx_, sy_) in enumerate([(-2.0, 3.0, 2.6, 1.0), (2.6, 3.4, 2.2, 0.9), (0.4, -3.0, 3.4, 0.9), (-3.6, -2.7, 1.8, 1.0), (4.4, -1.4, 1.4, 1.5), (-4.1, 1.4, 1.2, 1.6), (4.6, 1.8, 1.1, 1.3)]):
-    drift(f"Drift{i}", (dx_, dy_, 0.5), (sx_ * 0.75, sy_ * 0.75, 0.9), i + 1)
-for i in range(14):
-    a_ = random.uniform(0, math.tau)
-    r_ = random.uniform(3.6, 4.6)
-    box(f"Fallen{i}", (random.uniform(0.22, 0.5), random.uniform(0.2, 0.4), random.uniform(0.15, 0.3)), (math.cos(a_) * r_ * 1.1, math.sin(a_) * r_ * 0.85, 0.12), (random.uniform(-0.3, 0.3), random.uniform(-0.3, 0.3), random.uniform(0, 3)), mat=M["sand"], bevel=0.03)
 
 # ================================================================= bake + export
 body = lib.join(static, "Outpost_Body")

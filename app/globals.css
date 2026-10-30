@@ -101,6 +101,11 @@ h2 {
   background: rgba(7,18,23,.94);
   border-bottom: 1px solid #ffffff1a;
   backdrop-filter: blur(16px);
+  transition: transform .35s cubic-bezier(.2,.8,.2,1);
+}
+/* Tucks away while reading down the page; returns on any upward scroll or keyboard focus. */
+.site-header.is-hidden:not(:focus-within) {
+  transform: translateY(-100%);
 }
 .wordmark {
   display: flex;
@@ -204,6 +209,15 @@ h2 {
   line-height: 1.08;
   font-weight: 600;
   letter-spacing: -.065em;
+  /* Burnished gold: light at the top of the letters, deeper amber toward the baseline. */
+  background: linear-gradient(176deg, #fff1c4 0%, #f3cf7a 34%, #d9a441 62%, #a8711f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 18px rgb(0 0 0 / .35));
+  /* the gradient only paints inside the box, so give descenders (the y) room, then take the space back */
+  padding: 0 .06em .16em 0;
+  margin-bottom: -.16em;
 }
 .hero-year {
   display: inline-block;
@@ -212,6 +226,7 @@ h2 {
   font-size: .19em;
   letter-spacing: -.02em;
   vertical-align: baseline;
+  color: #f1cc7a; /* the small year would otherwise sit in the darkest band of the gold gradient */
 }
 .hero-description {
   margin-top: 20px;
@@ -324,7 +339,7 @@ h2 {
 }
 .island {
   position: relative;
-  min-height: 130svh;
+  min-height: 112svh;
 }
 .island-scene {
   position: sticky;
@@ -337,8 +352,9 @@ h2 {
   overflow: hidden;
 }
 .chapter-shade {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  opacity: var(--k, 0);
   pointer-events: none;
   background: linear-gradient(90deg,rgba(5,14,18,.78),rgba(5,14,18,.48) 25%,rgba(5,14,18,.12) 48%,transparent 68%);
 }
@@ -367,7 +383,7 @@ h2 {
   font-size: 15px;
 }
 .island-title {
-  margin-top: 8px;
+  margin-top: 20px;
   font-size: clamp(1.9rem,3.2vw,2.7rem);
   line-height: 1.15;
   font-weight: 600;
@@ -407,8 +423,9 @@ h2 {
   padding: 104px 48px 32px;
 }
 .hack-shade {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  opacity: var(--k, 0);
   pointer-events: none;
   background: linear-gradient(90deg,#02070d88,transparent 68%);
 }
@@ -423,6 +440,23 @@ h2 {
 .hack-card .eyebrow {
   color: var(--accent);
   font-size: 11px;
+}
+/* The one place the hackathon's standing is stated, so it gets the weight. */
+.hack-card .hack-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  color: #a8dbed;
+  text-shadow: 0 0 18px #5fb4ff66;
+}
+.hack-card .hack-badge::before {
+  content: "";
+  width: 36px;
+  height: 2px;
+  background: currentColor;
 }
 .hack-card h2 {
   font-size: clamp(2rem,3.8vw,3.2rem);
@@ -646,7 +680,7 @@ h2 {
     padding-top: 20px;
   }
   .island {
-    min-height: 135svh;
+    min-height: 115svh;
   }
   .island-scene {
     height: 100svh;
@@ -784,7 +818,7 @@ h2 {
   .chapter-description { max-width: 34ch; }
 }
 /* Themed chapter typography; body copy remains consistent. */
-.outpost .island-title { font-family: var(--font-orbit),sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: .14em; font-size: clamp(1.8rem,3.3vw,3.2rem); line-height: 1.4; color: #f3dab3; }
+.outpost .island-title { font-family: var(--font-orbit),sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; font-size: clamp(1.8rem,3.3vw,3.2rem); line-height: 1.4; color: #f3dab3; }
 .pandemonium .island-title { font-family: var(--font-cyber),sans-serif; font-weight: 700; text-transform: uppercase; font-style: italic; letter-spacing: -.025em; font-size: clamp(2rem,4vw,4rem); color: #e5fdff; text-shadow: 2px 2px 0 #b02b76, -1px -1px 0 #3cbbc9, 0 0 25px #3cbbc944; }
 .carnival .island-title { font-family: var(--font-carnival),serif; font-weight: 400; font-size: clamp(2rem,3.8vw,3.6rem); color: #ffe5ae; line-height: 1.2; text-shadow: 2px 3px 0 #782f27; }
 .hack-card { background: transparent; border: 0; border-radius: 0; padding: 0; width: min(480px,45vw); }
@@ -794,6 +828,12 @@ h2 {
 .hack-shade { background: linear-gradient(90deg,#02070dbb, #02070d44 40%,transparent 70%); }
 .chapter-next { justify-content: flex-start; border: 0; gap: 16px; margin-top: 20px; }
 .chapter-next small { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #c1cbc9; margin-bottom: 3px; }
+/* the next stop is named in its own lettering and colour, a preview of where the boat is going */
+.chapter-next > span { font-size: 22px; }
+.chapter-next small { font-family: var(--font-sans), sans-serif; font-style: normal; font-weight: 600; text-shadow: none; }
+.chapter-next.to-pandemonium > span { font-family: var(--font-cyber), sans-serif; font-weight: 700; font-style: italic; text-transform: uppercase; color: #ff8ad8; text-shadow: 1px 1px 0 #b02b76, 0 0 16px #ff2ea655; }
+.chapter-next.to-carnival > span { font-family: var(--font-carnival), serif; color: #ffd08a; text-shadow: 1px 2px 0 #782f27; }
+.chapter-next.to-orbit > span { font-family: var(--font-orbit), sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #a8dbed; text-shadow: 0 0 16px #5fb4ff55; }
 @media(max-width: 700px) {
   .hack-card { width: 100%; max-width: 440px; padding: 0; background: transparent; }
   .hack-card h2 { font-size: 48px; }

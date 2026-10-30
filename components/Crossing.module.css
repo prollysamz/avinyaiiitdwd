@@ -1,22 +1,22 @@
 /* Open water between chapters. Left-aligned on the same gutter as the chapter cards; no ornament. */
-.crossing { position: relative; height: 130svh; min-height: 640px; }
+.crossing { position: relative; height: 90svh; min-height: 560px; }
 .stage {
-  position: sticky; top: 0; height: 100svh; min-height: 520px;
-  display: flex; align-items: flex-end;
-  padding: 0 clamp(24px, 6vw, 96px) clamp(56px, 12svh, 130px);
+  position: sticky; top: 0; height: 100%;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 72px clamp(20px, 6vw, 96px) 0;  /* the top padding offsets the fixed header, so the sign sits in the visible middle */
 }
-/* A local scrim keeps the type readable over bright water and sky without boxing it in. */
-.stage::before {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(110% 80% at 0% 100%, rgb(5 11 17 / 0.72), rgb(5 11 17 / 0.28) 48%, transparent 72%);
+/* A soft scrim hugs the type (never the whole stage), so there is no panel edge to cross as you scroll. */
+.sign { position: relative; isolation: isolate; max-width: min(980px, 100%); }
+.sign::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none; inset: -110px -180px;
+  background: radial-gradient(closest-side, rgb(5 11 17 / 0.62), rgb(5 11 17 / 0.3) 55%, transparent);
 }
-.sign { position: relative; max-width: min(760px, 100%); }
 .when { font-family: var(--font-sans), sans-serif; font-weight: 600; font-size: 0.95rem; letter-spacing: 0.14em; text-transform: uppercase; color: #f4ecdc; margin-bottom: 16px; text-shadow: 0 1px 14px #000a; }
 .title { font-size: clamp(2.5rem, 7vw, 6.2rem); line-height: 1; margin: 0; }
-.line { margin-top: 20px; max-width: 34ch; font-size: clamp(1.02rem, 1.5vw, 1.2rem); line-height: 1.5; color: #f1f1ec; text-shadow: 0 1px 16px #000b; }
+.line { margin: 20px auto 0; max-width: 34ch; font-size: clamp(1.02rem, 1.5vw, 1.2rem); line-height: 1.5; color: #f1f1ec; text-shadow: 0 1px 16px #000b; }
 
 /* Each destination speaks in its own voice. */
-.crossing[data-voice="outpost"] .title { font-family: var(--font-orbit), sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; font-size: clamp(2.1rem, 5.4vw, 4.8rem); line-height: 1.12; color: #f6dfb8; text-shadow: 0 2px 24px #0008; }
+.crossing[data-voice="outpost"] .title { font-family: var(--font-orbit), sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; padding-left: 0.08em; font-size: clamp(2.1rem, 5.4vw, 4.8rem); line-height: 1.12; color: #f6dfb8; text-shadow: 0 2px 24px #0008; }
 .crossing[data-voice="pandemonium"] .title { font-family: var(--font-cyber), sans-serif; font-weight: 700; font-style: italic; text-transform: uppercase; letter-spacing: -0.02em; color: #e8fdff; text-shadow: 3px 3px 0 #b02b76, -1px -1px 0 #3cbbc9, 0 0 30px #3cbbc955; }
 .crossing[data-voice="carnival"] .title { font-family: var(--font-carnival), serif; font-weight: 400; font-size: clamp(2.3rem, 5.8vw, 5.2rem); line-height: 1.12; color: #ffe7b4; text-shadow: 3px 4px 0 #782f27, 0 0 28px #0006; }
 .crossing[data-voice="orbit"] .title { font-family: var(--font-orbit), sans-serif; font-weight: 500; text-transform: uppercase; letter-spacing: -0.03em; color: #eef6fb; font-size: clamp(1.6rem, 7vw, 5.6rem); white-space: nowrap; text-shadow: 0 0 40px #5fb4ff55; }
@@ -31,6 +31,6 @@
 @keyframes arrive { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 640px) {
-  .crossing { height: 120svh; }
-  .stage { padding-bottom: 88px; }
+  .crossing { height: 85svh; }
+  .stage { padding-top: 96px; }
 }

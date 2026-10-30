@@ -39,7 +39,8 @@ def flat(name, color, rough=0.5, metal=0.0, emit=None, strength=0.0):
 
 HUES = ["#ff2ea6", "#27e6ff", "#9a5bff"]
 WALL = [flat(f"Tower_{i}", "#30343e", 0.29, 0.48) for i in range(3)]
-NEON = [flat(f"Neon_{i}", h, 0.4, 0.0, h, 7.0) for i, h in enumerate(HUES)]
+# the third cornice family burns warm sodium yellow, a minority accent among the pinks and cyans
+NEON = [flat(f"Neon_{i}", h, 0.4, 0.0, h, 7.0) for i, h in enumerate(["#ff2ea6", "#27e6ff", "#ffc93c"])]
 METAL = flat("Rooftop", "#626369", 0.57, 0.65)
 BEACON = flat("Beacon", "#ff2a1a", 0.4, 0.0, "#ff2a1a", 10.0)
 CROWN = flat("Crown", "#16172a", 0.3, 0.9)
@@ -70,103 +71,96 @@ def taper(name, w, d, h, top, loc, mat, bevel=0.03, sides=4, rot=0.0):
     return add(o)
 
 
-def build_tower(i, x, y, h, w, d, k):
-    mat = WALL[k]
-    neon = NEON[k]
-    arche = rnd.choice(["slab", "slab", "setback", "cyl", "obelisk", "ziggurat"]) if h > 4.5 else "slab"
-    top = 0.0
+FLOOR = 0.85  # one storey; 4 storeys per window-texture tile (3.4 m), so heights land on whole floors
+
+
+def cap(i, x, y, w, d, z, neon, plant=True):
+    """A tidy roof: neon cornice, dark parapet rim, and one centred plant room. Returns the roof height."""
+    add(S.box(f"Cornice{i}_{z:.1f}", (w + 0.07, d + 0.07, 0.07), (x, y, z - 0.12), material=neon, bevel=0.01))
+    add(S.box(f"Parapet{i}_{z:.1f}", (w + 0.04, d + 0.04, 0.2), (x, y, z + 0.1), material=CROWN, bevel=0.015))
+    if plant:
+        add(S.box(f"Plant{i}_{z:.1f}", (w * 0.42, d * 0.42, 0.42), (x, y, z + 0.41), material=METAL, bevel=0.02))
+        return z + 0.62
+    return z + 0.2
+
+
+def mast(i, x, y, z, ht):
+    add(S.cyl(f"Mast{i}", 0.03, 0.05, ht, (x, y, z + ht / 2), material=METAL, verts=8))
+    add(S.sphere(f"Bcn{i}", 0.06, (x, y, z + ht + 0.05), material=BEACON, seg=10, rings=8))
+    return z + ht
+
+
+def build_tower(i, x, y, h, w, d, k, arche):
+    mat, neon = WALL[k], NEON[k]
     if arche == "slab":
         taper(f"T{i}", w, d, h, 1.0, (x, y, 0), mat)
-        top = h
-        add(S.box(f"Crown{i}", (w * 0.8, d * 0.8, 0.35), (x, y, h + 0.17), material=CROWN, bevel=0.03))
-        top += 0.35
-    elif arche == "setback":
-        h1, h2, h3 = h * 0.55, h * 0.3, h * 0.22
-        taper(f"T{i}a", w, d, h1, 1.0, (x, y, 0), mat)
-        taper(f"T{i}b", w * 0.74, d * 0.74, h2, 1.0, (x, y, h1), mat)
-        taper(f"T{i}c", w * 0.46, d * 0.46, h3, 1.0, (x, y, h1 + h2), mat)
-        add(S.box(f"Ring{i}a", (w + 0.1, d + 0.1, 0.1), (x, y, h1), material=neon, bevel=0.01))
-        add(S.box(f"Ring{i}b", (w * 0.74 + 0.1, d * 0.74 + 0.1, 0.1), (x, y, h1 + h2), material=neon, bevel=0.01))
-        top = h1 + h2 + h3
-    elif arche == "cyl":
-        taper(f"T{i}", w * 1.15, w * 1.15, h, 0.9, (x, y, 0), mat, sides=18)
-        for z in range(1, int(h / 1.4)):
-            add(S.torus(f"Band{i}_{z}", w * 0.57 * (1 - 0.1 * z / (h / 1.4)), 0.035, (x, y, z * 1.4), material=CROWN, major=24, minor=5))
-        add(S.cyl(f"Dome{i}", w * 0.5, w * 0.2, 0.5, (x, y, h + 0.25), material=CROWN, verts=18))
-        top = h + 0.5
-        add(S.torus(f"NeonRing{i}", w * 0.58, 0.05, (x, y, h * 0.7), material=neon, major=24, minor=6))
-    elif arche == "obelisk":
-        taper(f"T{i}", w, d, h, 0.42, (x, y, 0), mat)
-        add(S.cyl(f"Spire{i}", w * 0.18, 0.0, 1.6, (x, y, h + 0.8), material=METAL, verts=8))
-        top = h + 1.6
-    else:  # ziggurat
-        tiers = 4
-        z = 0.0
+        return cap(i, x, y, w, d, h, neon, plant=h > 5)
+    if arche == "setback":
+        # two or three clean tiers, each stepping in evenly and stopping on a whole floor
+        tiers = 3 if h > 10 else 2
+        z, s, top = 0.0, 1.0, 0.0
         for t in range(tiers):
-            th = h / tiers
-            s = 1 - t * 0.17
-            taper(f"T{i}z{t}", w * s, d * s, th, 0.97, (x, y, z), mat)
-            add(S.box(f"Z{i}{t}", (w * s + 0.08, d * s + 0.08, 0.08), (x, y, z + th), material=neon if t % 2 == 0 else CROWN, bevel=0.01))
+            th = max(FLOOR * 2, round(h * (0.56 if t == 0 else 0.44 / (tiers - 1)) / FLOOR) * FLOOR)
+            taper(f"T{i}s{t}", w * s, d * s, th, 1.0, (x, y, z), mat)
             z += th
-        top = h
-    # vertical neon corner strips on some towers
-    if rnd.random() < 0.4 and arche in ("slab", "setback"):
-        sx = rnd.choice((-1, 1))
-        add(S.box(f"Strip{i}", (0.07, 0.07, h * 0.9), (x + sx * w / 2, y + d / 2, h * 0.45), material=neon, bevel=0.01))
-    # rooftop plant
-    if arche in ("slab", "setback"):
-        # Physical curtain-wall mullions and floor spandrels catch the light;
-        # windows remain texture-driven to keep the skyline inexpensive.
-        facade_top = h if arche == "slab" else h * 0.55
-        for side in (-1, 1):
-            for q in (-0.25, 0.0, 0.25):
-                add(S.box(f"Mullion{i}_{side}_{q}", (0.025, 0.035, facade_top),
-                    (x + w * q, y + side * (d / 2 + 0.015), facade_top / 2), material=METAL, bevel=0.005))
-            for floor in range(1, int(facade_top / 0.85)):
-                add(S.box(f"Spandrel{i}_{side}_{floor}", (w + 0.025, 0.035, 0.055),
-                    (x, y + side * (d / 2 + 0.015), floor * 0.85), material=CROWN, bevel=0.005))
-    for j in range(rnd.randint(1, 3)):
-        add(S.box(f"AC{i}_{j}", (rnd.uniform(0.25, 0.5), rnd.uniform(0.25, 0.5), rnd.uniform(0.2, 0.4)), (x + rnd.uniform(-w, w) * 0.25, y + rnd.uniform(-d, d) * 0.25, top + 0.15), material=METAL, bevel=0.02))
-    if rnd.random() < 0.55:
-        ah = rnd.uniform(1.4, 3.0)
-        add(S.cyl(f"Ant{i}", 0.02, 0.035, ah, (x + w * 0.2, y, top + ah / 2), material=METAL, verts=6))
-        add(S.sphere(f"Bcn{i}", 0.045, (x + w * 0.2, y, top + ah + 0.04), material=BEACON, seg=8, rings=6))
-    if rnd.random() < 0.3:
-        add(S.cyl(f"Tank{i}", 0.28, 0.28, 0.5, (x - w * 0.2, y + d * 0.1, top + 0.35), material=METAL, verts=12))
-    return top
+            last = t == tiers - 1
+            top = cap(i, x, y, w * s, d * s, z, neon, plant=last)
+            s -= 0.22
+        return top
+    # "cyl": a round tower with a shallow dome and a single neon band at its crown
+    taper(f"T{i}", w * 1.1, w * 1.1, h, 1.0, (x, y, 0), mat, sides=24)
+    add(S.torus(f"NeonRing{i}", w * 0.56, 0.045, (x, y, h - 0.12), material=neon, major=32, minor=6))
+    add(S.cyl(f"Dome{i}", w * 0.55, w * 0.18, 0.45, (x, y, h + 0.22), material=CROWN, verts=24))
+    return h + 0.45
+
+
+def hero(i, x, y, h, w, k):
+    """The landmark at the centre: a stepped tower finishing in a slim lit spire."""
+    top = build_tower(i, x, y, h, w, w, k, "setback")
+    add(S.cyl(f"HeroCrown{i}", w * 0.2, w * 0.12, 1.2, (x, y, top + 0.6), material=CROWN, verts=16))
+    add(S.torus(f"HeroHalo{i}", w * 0.21, 0.04, (x, y, top + 1.15), material=NEON[1], major=24, minor=6))
+    return mast(i, x, y, top + 1.2, 3.2)
 
 
 towers = []
 idx = 0
-for gx in range(-4, 5):
-    for gz in range(-4, 5):
-        x = gx * 2.45 + (rnd.random() - 0.5) * 0.5
-        y = gz * 2.45 + (rnd.random() - 0.5) * 0.5
+SPACING = 2.7
+for gx in range(-3, 4):
+    for gz in range(-3, 4):
+        x, y = gx * SPACING, gz * SPACING
         rad = math.hypot(x, y)
-        if rad > 9.4 or (gx == 3 and gz == 3) or rnd.random() < 0.12:
+        if rad > 9.0:
             continue
-        core = math.exp(-((rad / 6.3) ** 2))
-        h = 2.6 + core * (9 + rnd.random() * 7) + rnd.random() * 2.5
-        w, d = 1.2 + rnd.random() * 0.9, 1.2 + rnd.random() * 0.9
-        top = build_tower(idx, x, y, h, w, d, idx % 3)
-        towers.append((x, y, top, w, d, idx % 3))
+        core = math.exp(-((rad / 5.6) ** 2))
+        k = idx % 3
+        if gx == 0 and gz == 0:
+            h = round(17.0 / FLOOR) * FLOOR
+            top = hero(idx, x, y, h, 2.0, k)
+        else:
+            # a smooth rise toward the centre, snapped to whole floors, with a little variety per block
+            h = max(FLOOR * 3, round((2.6 + core * 11.5 + rnd.uniform(-0.8, 1.6)) / FLOOR) * FLOOR)
+            w = rnd.choice((1.7, 1.9, 2.05))
+            d = rnd.choice((1.7, 1.9, 2.05))
+            arche = "slab" if h < 6 else ("setback" if h > 9.5 else rnd.choice(("slab", "slab", "cyl")))
+            top = build_tower(idx, x, y, h, w, d, k, arche)
+            if h > 11 and rnd.random() < 0.6:
+                top = mast(idx, x, y, top, rnd.uniform(1.2, 1.8))
+        towers.append((x, y, top, k, gx, gz))
         idx += 1
 
-# skybridges between neighbouring tall towers, with a neon underside
+# a few skybridges, only between axis-aligned neighbours, so they meet facades square-on
 bridges = 0
 for a in range(len(towers)):
     for b in range(a + 1, len(towers)):
         ta, tb = towers[a], towers[b]
-        dist = math.hypot(ta[0] - tb[0], ta[1] - tb[1])
-        if dist < 3.1 and min(ta[2], tb[2]) > 6.5 and bridges < 9:
-            z = 0.58 * min(ta[2], tb[2])
-            mid = ((ta[0] + tb[0]) / 2, (ta[1] + tb[1]) / 2, z)
-            ang = math.atan2(tb[1] - ta[1], tb[0] - ta[0])
-            o = S.box(f"Bridge{bridges}", (dist - 0.6, 0.42, 0.3), mid, (0, 0, ang), material=WALL[ta[5]], bevel=0.03)
-            add(o)
-            n = S.box(f"BridgeNeon{bridges}", (dist - 0.62, 0.3, 0.05), (mid[0], mid[1], z - 0.17), (0, 0, ang), material=NEON[tb[5]], bevel=0)
-            add(n)
-            bridges += 1
+        if abs(ta[4] - tb[4]) + abs(ta[5] - tb[5]) != 1 or min(ta[2], tb[2]) < 9 or bridges >= 4:
+            continue
+        z = round(0.55 * min(ta[2], tb[2]) / FLOOR) * FLOOR
+        mid = ((ta[0] + tb[0]) / 2, (ta[1] + tb[1]) / 2, z)
+        ang = 0.0 if ta[5] == tb[5] else math.pi / 2
+        add(S.box(f"Bridge{bridges}", (SPACING, 0.5, 0.36), mid, (0, 0, ang), material=CROWN, bevel=0.02))
+        add(S.box(f"BridgeNeon{bridges}", (SPACING, 0.52, 0.05), (mid[0], mid[1], z - 0.2), (0, 0, ang), material=NEON[tb[3]], bevel=0))
+        bridges += 1
 
 city = lib.join(parts, "City")
 city.parent = S.root

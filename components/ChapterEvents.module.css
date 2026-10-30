@@ -1,5 +1,9 @@
 .events { margin-top: 32px; }
 .events h3 { font-family: var(--font-sans), sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #e4ece9; margin: 0 0 10px; }
+/* the day heading takes its island's colour and lettering */
+:global(.outpost) .events h3 { font-family: var(--font-orbit), sans-serif; font-weight: 700; letter-spacing: 0.12em; color: #f2c27a; }
+:global(.pandemonium) .events h3 { font-family: var(--font-cyber), sans-serif; font-style: italic; color: #ff6fd0; text-shadow: 0 0 14px #ff2ea655; }
+:global(.carnival) .events h3 { font-family: var(--font-carnival), serif; font-weight: 400; text-transform: none; letter-spacing: 0.02em; font-size: 1.15rem; color: #ffc36b; }
 .events ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid #ffffff3d; }
 .events li { display: grid; grid-template-columns: 62px minmax(0, 1fr); align-items: baseline; gap: 2px 14px; padding: 13px 0; border-bottom: 1px solid #ffffff2b; }
 .events time { font-family: var(--font-mono), monospace; font-size: 1rem; font-variant-numeric: tabular-nums; color: #d5e2de; }

@@ -148,7 +148,7 @@ function Rig({ tier }: { tier: Tier }) {
   const keys = useRef<Key[] | null>(null);
   const smoothLook = useMemo(() => new THREE.Vector3(0, 1.5, -30), []);
   const goal = useMemo<Goal>(() => ({ pos: new THREE.Vector3(), look: new THREE.Vector3(), phase: 0, boat: 1 }), []);
-  const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), right: new THREE.Vector3(), aim: new THREE.Vector3(), first: true, boatSide: 1 }), []);
+  const tmp = useMemo(() => ({ fwd: new THREE.Vector3(), right: new THREE.Vector3(), aim: new THREE.Vector3(), first: true, boatSide: 1, reverse: false }), []);
   const phase = useRef(0);
 
   // environment lighting: PMREM of the sky, re-rendered only when the sky actually changes
@@ -320,8 +320,14 @@ function Rig({ tier }: { tier: Tier }) {
     let clearance = 0;
     for (const island of isl) clearance = Math.max(clearance, 1 - smoothstep(24, 36, Math.abs(boat.current.position.z - island.z)));
     boat.current.position.x = THREE.MathUtils.lerp(boat.current.position.x, Math.min(boat.current.position.x, 2.2), clearance);
-    const heading = Math.atan2(-tmp.fwd.x * (1 - clearance), -tmp.fwd.z);
-    boat.current.rotation.y = THREE.MathUtils.damp(boat.current.rotation.y, heading, 2, dt);
+    // Scrolling back up sails the boat back the way it came, so it comes about and faces that way.
+    // A small dead band keeps it from flip-flopping on trackpad jitter; it keeps its last heading when idle.
+    if (world.velocity < -180) tmp.reverse = true;
+    else if (world.velocity > 180) tmp.reverse = false;
+    const heading = Math.atan2(-tmp.fwd.x * (1 - clearance), -tmp.fwd.z) + (tmp.reverse ? Math.PI : 0);
+    // turn the short way round, at a pace that reads as the helm being put over
+    const turn = Math.atan2(Math.sin(heading - boat.current.rotation.y), Math.cos(heading - boat.current.rotation.y));
+    boat.current.rotation.y += turn * (1 - Math.exp(-1.8 * dt));
     boat.current.visible = camY < 14;
     boat.current.updateWorldMatrix(true, true);
     const hull = boat.current.getObjectByName("voyage-hull");

@@ -2,13 +2,23 @@
 .section {
   position: relative; overflow: hidden; color: #f6f1e6;
   padding: clamp(80px, 10vw, 150px) 0 clamp(80px, 10vw, 140px);
+  /* One deep navy for the whole upper section; colour only arrives with the islands and the horizon below. */
   background:
-    radial-gradient(38% 34% at 14% 78%, #e9784540, transparent 70%),
-    radial-gradient(38% 34% at 50% 82%, #ff2ea538, transparent 70%),
-    radial-gradient(38% 34% at 88% 78%, #ffbd4a38, transparent 70%),
-    linear-gradient(180deg, #0c2227 0%, #123036 55%, #1a2c3a 100%);
+    radial-gradient(38% 30% at 14% 84%, #e9784533, transparent 70%),
+    radial-gradient(38% 30% at 50% 88%, #ff2ea52e, transparent 70%),
+    radial-gradient(38% 30% at 88% 84%, #ffbd4a2e, transparent 70%),
+    #0c1a2b;
 }
-.wrap { position: relative; width: min(1280px, calc(100% - 48px)); margin: 0 auto; }
+/* A warm horizon and gentle sea shimmer under the islands. */
+.section::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: clamp(180px, 24vw, 340px); pointer-events: none;
+  background:
+    repeating-linear-gradient(180deg, #ffe0a822 0 1px, transparent 1px 16px),
+    linear-gradient(180deg, transparent 0%, #f28b5a30 55%, #ff4fa83d 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%);
+  mask-image: linear-gradient(180deg, transparent, #000 60%);
+}
+.wrap { position: relative; z-index: 1; width: min(1280px, calc(100% - 48px)); margin: 0 auto; }
 
 .intro { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 28px clamp(32px, 7vw, 110px); align-items: end; margin-bottom: clamp(64px, 9vw, 130px); }
 .intro h2 { font-family: var(--font-sans), sans-serif; font-weight: 800; font-size: clamp(2.6rem, 6vw, 5.2rem); line-height: 0.98; letter-spacing: -0.045em; margin: 0; max-width: 11ch; }

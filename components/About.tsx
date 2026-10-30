@@ -4,7 +4,7 @@ import styles from "./About.module.css";
 
 const ISLANDS = [
   { id: "islands", img: "/images/islands/outpost.webp", w: 915, h: 960, alt: "The Last Outpost: a desert fortress with a tall keep, crenellated wall and windtrap tower on a floating rock island" },
-  { id: "pandemonium", img: "/images/islands/pandemonium.webp", w: 1157, h: 1100, alt: "The Pandemonium: a dense neon city of lit skyscrapers on a floating rock island" },
+  { id: "pandemonium", img: "/images/islands/pandemonium.webp", w: 894, h: 1005, alt: "The Pandemonium: a stepped neon skyline rising to a central spire on a floating rock island" },
   { id: "carnival", img: "/images/islands/carnival.webp", w: 979, h: 990, alt: "The Carnival Island: a Ferris wheel and striped tents on a floating rock island" },
 ] as const;
 
@@ -14,7 +14,7 @@ export default function About() {
       <div className={styles.wrap}>
         <div className={styles.intro}>
           <h2 id="about-title">A festival across <span className={styles.hot}>three islands.</span></h2>
-          <p>Avinya is the techno-cultural fest of IIIT Dharwad. From 12 to 14 March 2027, each day happens on its own island with its own theme, and Hack2Future, the college’s national-level hackathon, runs through the festival.</p>
+          <p>Avinya is the techno-cultural fest of IIIT Dharwad. From 12 to 14 March 2027, each day happens on its own island with its own theme, and the Hack2Future hackathon runs through the festival.</p>
         </div>
         <ul className={styles.islands}>
           {DAYS.map((day, i) => (

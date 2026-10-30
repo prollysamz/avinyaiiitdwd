@@ -2,7 +2,7 @@
 
 import { RoundedBox, Sparkles, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeGeometries, mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
@@ -123,7 +123,8 @@ function Blob({ x, y, z, sx, sz, o = 0.5 }: { x: number; y: number; z: number; s
 }
 
 /** Scattered boulders and pebbles along the shore. */
-function Debris({ h, seed, count, radius, tint }: { h: (x: number, z: number) => number; seed: number; count: number; radius: [number, number]; tint: string }) {
+/** `sink` is how much of each stone sits below grade (as a fraction of its size); `maxSize` caps the largest. */
+function Debris({ h, seed, count, radius, tint, sink = 0.2, maxSize = 0.55 }: { h: (x: number, z: number) => number; seed: number; count: number; radius: [number, number]; tint: string; sink?: number; maxSize?: number }) {
   const rock = useCoastalSurface("rock");
   const geo = useMemo(() => rockGeo(seed, 1, 0.62, 1, 2), [seed]);
   const ref = useRef<THREE.InstancedMesh>(null!);
@@ -133,9 +134,12 @@ function Debris({ h, seed, count, radius, tint }: { h: (x: number, z: number) =>
       const a = r() * Math.PI * 2, d = radius[0] + r() * (radius[1] - radius[0]);
       const x = Math.cos(a) * d, z = Math.sin(a) * d, y = h(x, z);
       if (y < -0.3 || y > 1.2) continue;
-      const sc = 0.12 + Math.pow(r(), 2.5) * 0.55;
+      // stones settle on gentle ground; anything steeper and they'd be stuck to a cliff face
+      const slope = Math.hypot(h(x + 0.3, z) - h(x - 0.3, z), h(x, z + 0.3) - h(x, z - 0.3)) / 0.6;
+      if (slope > 0.4) continue;
+      const sc = 0.12 + Math.pow(r(), 2.5) * maxSize;
       const support = Math.min(y, h(x + sc, z), h(x - sc, z), h(x, z + sc), h(x, z - sc));
-      out.push(new THREE.Matrix4().compose(V(x, support - sc * 0.2, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 0.5, r() * 6.28, r() * 0.5)), V(sc, sc, sc)));
+      out.push(new THREE.Matrix4().compose(V(x, support - sc * sink, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 0.5, r() * 6.28, r() * 0.5)), V(sc, sc, sc)));
     }
     return out;
   }, [h, seed, count, radius]);
@@ -183,16 +187,44 @@ function ShoreGeology({ h, seed, tint }: { h: (x: number, z: number) => number; 
 function CoastalGrass() {
   const ref = useRef<THREE.InstancedMesh>(null!);
   const count = world.compact ? 700 : 2200;
+  // A tuft: five curved, tapering blades fanning from one root. Vertex colour darkens the base;
+  // upward normals give the soft, even shading of a lawn rather than hard-edged slivers.
   const geometry = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    const vertices: number[] = [];
-    for (let i = 0; i < 3; i++) {
-      const a = i * Math.PI / 3, x = Math.cos(a) * .035, z = Math.sin(a) * .035;
-      vertices.push(-x, 0, -z, x, 0, z, x * 2.5, .32 + i * .04, z * 2.5);
+    const random = rng(51), pos: number[] = [], col: number[] = [], nrm: number[] = [], idx: number[] = [];
+    const SEG = 4;
+    for (let b = 0; b < 5; b++) {
+      const yaw = random() * Math.PI * 2, lean = 0.25 + random() * 0.45, hgt = 0.22 + random() * 0.2, w = 0.022 + random() * 0.01;
+      const dx = Math.cos(yaw), dz = Math.sin(yaw), base = pos.length / 3;
+      for (let s = 0; s <= SEG; s++) {
+        const t = s / SEG, bend = lean * t * t * hgt, half = w * (1 - t * 0.92);
+        const cx = dx * (bend + 0.02), cz = dz * (bend + 0.02), y = hgt * t;
+        pos.push(cx - dz * half, y, cz + dx * half, cx + dz * half, y, cz - dx * half);
+        const shade = 0.42 + t * 0.58;
+        col.push(shade, shade, shade, shade, shade, shade);
+        nrm.push(0, 1, 0, 0, 1, 0);
+        if (s < SEG) { const i = base + s * 2; idx.push(i, i + 1, i + 2, i + 1, i + 3, i + 2); }
+      }
     }
-    g.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
-    g.computeVertexNormals(); return g;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3));
+    g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(idx);
+    return g;
   }, []);
+  const time = useMemo(() => ({ value: 0 }), []);
+  useFrame(() => { time.value = world.time; });
+  const sway = useCallback((shader: THREE.WebGLProgramParametersWithUniforms) => {
+    shader.uniforms.uTime = time;
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nuniform float uTime;")
+      .replace("#include <begin_vertex>", `#include <begin_vertex>
+        // the tip moves most; neighbouring tufts move a little out of step, like a breeze passing through
+        vec3 root = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+        float k = position.y * position.y * 6.0;
+        transformed.x += sin(uTime * 1.6 + root.x * 0.7 + root.z * 0.4) * 0.05 * k;
+        transformed.z += cos(uTime * 1.2 + root.z * 0.6) * 0.03 * k;`);
+  }, [time]);
   useLayoutEffect(() => {
     const random = rng(867), dummy = new THREE.Object3D();
     let placed = 0;
@@ -202,26 +234,29 @@ function CoastalGrass() {
       if (y < .65 || y > 1.75 || Math.hypot(x - WHEEL.x, z - WHEEL.z) < 5 || fbm(x * .9, z * .9, 2) < -.12) continue;
       dummy.position.set(x, y - .025, z);
       dummy.rotation.set(0, random() * Math.PI * 2, (random() - .5) * .25);
-      dummy.scale.setScalar(.5 + random() * .75); dummy.updateMatrix();
+      dummy.scale.setScalar(.6 + random() * .7); dummy.updateMatrix();
       ref.current.setMatrixAt(placed, dummy.matrix);
-      ref.current.setColorAt(placed, new THREE.Color().lerpColors(hx("#525b32"), hx("#a59b62"), random()));
+      // muted meadow greens, with the odd sun-dried tuft
+      const dry = random() < 0.18;
+      ref.current.setColorAt(placed, new THREE.Color().lerpColors(hx(dry ? "#9a8f5e" : "#55663a"), hx(dry ? "#b9a970" : "#8c9a5c"), random()));
       placed++;
     }
     ref.current.count = placed; ref.current.instanceMatrix.needsUpdate = true;
     if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
     ref.current.computeBoundingSphere();
   }, [count]);
-  return <instancedMesh ref={ref} args={[geometry, undefined, count]} receiveShadow><meshStandardMaterial roughness={1} side={THREE.DoubleSide} /></instancedMesh>;
+  return <instancedMesh ref={ref} args={[geometry, undefined, count]} receiveShadow><meshStandardMaterial vertexColors roughness={1} side={THREE.DoubleSide} onBeforeCompile={sway} /></instancedMesh>;
 }
 
-function Foam({ h, extent }: { h: (x: number, z: number) => number; extent: number }) {
+/** Shoreline wash. `strength` scales it: a sunlit beach gets bright surf, a sheer city seawall only a faint tinted lap. */
+function Foam({ h, extent, color = "#fff6e8", strength = 1 }: { h: (x: number, z: number) => number; extent: number; color?: string; strength?: number }) {
   const tex = useMemo(() => foamTexture(h, extent, 256), [h, extent]);
   const mat = useRef<THREE.MeshBasicMaterial>(null!);
-  useFrame(() => { if (mat.current) mat.current.opacity = 0.28 + Math.sin(world.time * 0.9) * 0.09; });
+  useFrame(() => { if (mat.current) mat.current.opacity = (0.28 + Math.sin(world.time * 0.9) * 0.09) * strength; });
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.035, 0]}>
       <planeGeometry args={[extent, extent]} />
-      <meshBasicMaterial ref={mat} map={tex} transparent depthWrite={false} color="#fff6e8" />
+      <meshBasicMaterial ref={mat} map={tex} transparent depthWrite={false} color={color} />
     </mesh>
   );
 }
@@ -277,15 +312,31 @@ function duneColor(x: number, z: number, h: number, ny: number) {
 }
 
 /** Blender-authored Dune citadel (blender/outpost.py): baked PBR atlas, single draw call. */
-useGLTF.preload("/models/outpost-realistic.glb");
+useGLTF.preload("/models/outpost.glb");
 function Citadel() {
-  const { scene } = useGLTF("/models/outpost-realistic.glb");
+  const { scene } = useGLTF("/models/outpost.glb");
   const model = useMemo(() => {
     const m = scene.clone(true);
     m.traverse((o) => { const mesh = o as THREE.Mesh; if (mesh.isMesh) { mesh.castShadow = true; mesh.receiveShadow = true; } });
     return m;
   }, [scene]);
-  return <primitive object={model} position={[PAD.x, 2.42, PAD.z]} rotation={[0, -0.42, 0]} />;
+  const beacon = useRef<THREE.MeshBasicMaterial>(null!);
+  const halo = useRef<THREE.SpriteMaterial>(null!);
+  const glow = useMemo(() => glowTexture(), []);
+  useFrame(() => {
+    // the comms mast's warning light: two quick pulses, then a pause
+    const p = world.time % 2.4, on = world.reduced || p < 0.2 || (p > 0.42 && p < 0.62);
+    if (beacon.current) beacon.current.color.set("#ff2a1a").multiplyScalar(on ? 8 : 0.25);
+    if (halo.current) halo.current.opacity = on ? 0.55 : 0;
+  });
+  return (
+    <group position={[PAD.x, 2.42, PAD.z]} rotation={[0, -0.42, 0]}>
+      <primitive object={model} />
+      {/* mast tip, from blender/outpost.py (Blender z-up → glTF y-up) */}
+      <mesh position={[-2.4, 12.0, 0.6]}><sphereGeometry args={[0.1, 12, 8]} /><meshBasicMaterial ref={beacon} toneMapped={false} /></mesh>
+      <sprite position={[-2.4, 12.0, 0.6]} scale={[1.6, 1.6, 1]}><spriteMaterial ref={halo} map={glow} color="#ff3a22" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} /></sprite>
+    </group>
+  );
 }
 
 function Outpost() {
@@ -294,12 +345,6 @@ function Outpost() {
   const rock = useCoastalSurface("rock");
   const compact = world.compact;
   const geo = useMemo(() => makeTerrain(46, compact ? 192 : 384, duneHeight, duneColor, 11), [compact]);
-  const rocks = useMemo(() => [
-    { g: rockGeo(1.2, 1.6, 2.4, 1.3), p: [-12.4, -0.6, 4.6] as const, s: 1 },
-    { g: rockGeo(4.8, 1.2, 1.5, 1.1), p: [10.6, -0.5, 7.4] as const, s: 1 },
-    { g: rockGeo(9.1, 0.9, 1.9, 0.9), p: [-3.4, -0.4, 13.4] as const, s: 1 },
-    { g: rockGeo(2.7, 0.7, 0.8, 0.7), p: [6.4, 0.3, -12.8] as const, s: 1 },
-  ], []);
   const blink = useRef<THREE.MeshBasicMaterial>(null!);
   const concMat = useMemo(() => ({ color: "#d2a574", map: rep(conc.map, 1.5, 1), normalMap: rep(conc.normalMap, 1.5, 1) }), [conc]);
   const slit = <meshStandardMaterial color="#2a160a" emissive="#ffb35a" emissiveIntensity={3.2} toneMapped={false} />;
@@ -311,14 +356,9 @@ function Outpost() {
         <meshStandardMaterial vertexColors {...sand} normalScale={new THREE.Vector2(0.65, 0.65)} roughness={1} metalness={0} />
       </mesh>
       <Foam h={duneHeight} extent={46} />
-      {rocks.map((r, i) => (
-        <mesh key={i} geometry={r.g} position={[...r.p]} castShadow receiveShadow>
-          <meshStandardMaterial vertexColors {...rock} color="#c5bfb4" roughness={1} onBeforeCompile={coastalShader} />
-        </mesh>
-      ))}
       <Debris h={duneHeight} seed={3} count={compact ? 30 : 70} radius={[9, 17]} tint="#c99a74" />
       <ShoreGeology h={duneHeight} seed={31} tint="#9b7556" />
-      <Blob x={PAD.x} y={2.53} z={PAD.z} sx={9} sz={6} o={0.45} />
+      <Blob x={PAD.x} y={2.53} z={PAD.z} sx={13} sz={7.5} o={0.45} />
 
       <Suspense fallback={null}><Citadel /></Suspense>
 
@@ -398,13 +438,23 @@ function buildTowers() {
 }
 
 /** Blender-authored skyline (blender/city.py). Tower_0/1/2 get the tiling lit-window emissive map in each neon hue. */
-useGLTF.preload("/models/city-realistic.glb");
+useGLTF.preload("/models/city.glb");
+/** A searchlight shaft: bright at the lamp, fading out along its length, so it reads as light in haze, not a solid cone. */
+const beamVertex = /* glsl */ `varying float vAlong; void main(){ vAlong = uv.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const beamFragment = /* glsl */ `varying float vAlong; uniform vec3 uColor; uniform float uOpacity;
+  void main(){ float a = pow(1.0 - vAlong, 1.6) * uOpacity; gl_FragColor = vec4(uColor * a, a); }`;
+/** One rooftop fixture, three heads evenly spaced around it, sweeping together like a club light. */
+const SEARCHLIGHTS = ["#ff2ea6", "#27e6ff", "#ffc93c"];
+const SWEEP = { tilt: 0.62, speed: 0.3 };
+
 function Skyline({ win }: { win: THREE.Texture }) {
-  const { scene } = useGLTF("/models/city-realistic.glb");
-  const model = useMemo(() => {
+  const { scene } = useGLTF("/models/city.glb");
+  const { model, neons, beacon, roof } = useMemo(() => {
     const m = scene.clone(true);
     const hues = ["#ff2ea6", "#27e6ff", "#9a5bff"];
     const seen = new Set<THREE.Material>();
+    const neons: THREE.MeshStandardMaterial[] = [];
+    let beacon: THREE.MeshStandardMaterial | null = null;
     m.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
@@ -415,11 +465,55 @@ function Skyline({ win }: { win: THREE.Texture }) {
       const t = /^Tower_(\d)$/.exec(mat.name);
       if (t) { mat.emissive = new THREE.Color(hues[+t[1]]); mat.emissiveMap = win; mat.emissiveIntensity = 1.45; }
       else if (mat.name.startsWith("Neon_") || mat.name === "Beacon") { mat.toneMapped = false; mat.emissiveIntensity = 3.2; }
+      // a touch of warm sodium yellow among the pinks and cyans: one cornice family only
+      if (mat.name === "Neon_2") { mat.color.set("#ffc93c"); mat.emissive.set("#ffc93c"); }
+      if (mat.name.startsWith("Neon_")) neons[+mat.name.slice(5)] = mat;
+      if (mat.name === "Beacon") beacon = mat;
       mat.needsUpdate = true;
     });
-    return m;
+    // find the central tower's roof (just off the mast) so the searchlights stand on it
+    m.updateMatrixWorld(true);
+    const hit = new THREE.Raycaster(new THREE.Vector3(0.45, 200, 0), new THREE.Vector3(0, -1, 0)).intersectObject(m, true)[0];
+    return { model: m, neons, beacon: beacon as THREE.MeshStandardMaterial | null, roof: hit ? hit.point.y : 16 };
   }, [scene, win]);
-  return <primitive object={model} position={[0, 1.07, 0]} />;
+
+  const fixture = useRef<THREE.Group>(null!);
+  const flicker = useRef({ until: 0, next: 4 });
+  useFrame(() => {
+    const t = world.time;
+    if (world.reduced) return;
+    // cornices breathe slowly, out of step with each other
+    neons.forEach((m, i) => { if (m) m.emissiveIntensity = 3.0 + Math.sin(t * 0.9 + i * 2.1) * 0.6; });
+    // the cyan family stutters now and then, like an old tube on its way out
+    const f = flicker.current;
+    if (t > f.next) { f.until = t + 0.35; f.next = t + 5 + Math.random() * 7; }
+    if (neons[1] && t < f.until) neons[1].emissiveIntensity = Math.sin(t * 90) > 0.2 ? 3.4 : 0.5;
+    // aircraft-warning beacons: a short, sharp blink once a second
+    if (beacon) beacon.emissiveIntensity = (t % 1.1) < 0.18 ? 14 : 1.2;
+    if (fixture.current) fixture.current.rotation.y = t * SWEEP.speed;
+  });
+
+  return (
+    <group position={[0, 1.07, 0]}>
+      <primitive object={model} />
+      {!world.reduced && (
+        <group ref={fixture} position={[0.55, roof, 0]}>
+          <mesh position={[0, 0.14, 0]}><cylinderGeometry args={[0.2, 0.24, 0.28, 16]} /><meshStandardMaterial color="#16172a" metalness={0.8} roughness={0.35} /></mesh>
+          {SEARCHLIGHTS.map((color, i) => (
+            <group key={i} rotation={[0, (i / SEARCHLIGHTS.length) * Math.PI * 2, 0]}>
+              <group position={[0, 0.3, 0]} rotation={[0, 0, SWEEP.tilt]}>
+                <mesh position={[0, 15, 0]} frustumCulled={false}>
+                  <cylinderGeometry args={[1.5, 0.06, 30, 24, 1, true]} />
+                  <shaderMaterial vertexShader={beamVertex} fragmentShader={beamFragment} uniforms={{ uColor: { value: new THREE.Color(color) }, uOpacity: { value: 0.16 } }}
+                    transparent depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} toneMapped={false} />
+                </mesh>
+              </group>
+            </group>
+          ))}
+        </group>
+      )}
+    </group>
+  );
 }
 
 function Pandemonium() {
@@ -430,34 +524,18 @@ function Pandemonium() {
   const compact = world.compact;
   const terrain = useMemo(() => makeTerrain(40, compact ? 160 : 320, cityHeight, cityColor, 8), [compact]);
   const deckGrid = useMemo(() => rep(grid, 5, 5), [grid]);
-  const beams = useRef<THREE.Group>(null!);
-  const holo = useRef<THREE.Mesh>(null!);
   const glow = useMemo(() => glowTexture(), []);
-  useFrame(() => {
-    const t = world.time;
-    if (beams.current) { beams.current.rotation.y = t * 0.35; }
-    if (holo.current) { holo.current.rotation.z = t * 0.5; holo.current.rotation.x = Math.PI / 2 + Math.sin(t * 0.7) * 0.15; }
-  });
   return (
     <group position={ISLANDS.pandemonium}>
       <mesh geometry={terrain} receiveShadow castShadow>
         <meshStandardMaterial vertexColors {...rock} roughness={1} metalness={0} onBeforeCompile={coastalShader} />
       </mesh>
-      <Foam h={cityHeight} extent={40} />
+      <Foam h={cityHeight} extent={40} color="#7a3a8a" strength={0.35} />
       <mesh position={[0, 0.98, 0]} receiveShadow>
         <cylinderGeometry args={[10.4, 10.9, 0.18, 72]} />
         <meshStandardMaterial color="#3d3e45" {...concrete} metalness={0.08} roughness={0.8} emissive="#b0289a" emissiveMap={deckGrid} emissiveIntensity={0.18} />
       </mesh>
       <Suspense fallback={null}><Skyline win={win} /></Suspense>
-      <mesh ref={holo} position={[0, 21, 0]}><torusGeometry args={[2.6, 0.035, 8, 80]} /><meshBasicMaterial color={hx("#27e6ff").clone().multiplyScalar(3)} toneMapped={false} /></mesh>
-      <group ref={beams} position={[0, 1.2, 0]}>
-        {[0, Math.PI].map((a, i) => (
-          <mesh key={i} position={[Math.cos(a) * 0.4, 14, Math.sin(a) * 0.4]} rotation={[Math.cos(a) * 0.35, 0, -Math.sin(a) * 0.35 + 0.0]}>
-            <cylinderGeometry args={[0.05, 1.1, 28, 20, 1, true]} />
-            <meshBasicMaterial color={i ? "#27e6ff" : "#ff2ea6"} transparent opacity={0.07} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} toneMapped={false} />
-          </mesh>
-        ))}
-      </group>
       <sprite position={[0, 5, 0]} scale={[26, 18, 1]}><spriteMaterial map={glow} color="#c42a9a" transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} /></sprite>
       <Debris h={cityHeight} seed={11} count={compact ? 20 : 45} radius={[10, 13.5]} tint="#5a4e6a" />
       <ShoreGeology h={cityHeight} seed={47} tint="#5e626d" />
@@ -479,6 +557,13 @@ function carnivalHeight(x: number, z: number) {
   h += smoothstep(3.2, 1.2, Math.hypot(x + 9.5, z + 4)) * 2.2 * m;
   return mix(h, 1.05, smoothstep(4.6, 3.0, Math.hypot(x - WHEEL.x, z - WHEEL.z)));
 }
+/** Pier root: walk out from the island centre along x = -6.5 to the waterline, then step back onto the sand. */
+const PIER = (() => {
+  const x = -6.5;
+  let z = 4;
+  while (z < 24 && carnivalHeight(x, z) > 0.35) z += 0.1;
+  return { x, z: z - 2.2 };
+})();
 function carnivalColor(x: number, z: number, h: number, ny: number) {
   const n = fbm(x * 0.3, z * 0.3, 3) * 0.5 + 0.5;
   const grass = lerpC("#657153", "#8c9068", n).clone();
@@ -518,30 +603,58 @@ function FerrisWheel() {
 function Palm({ x, z, seed, ground }: { x: number; z: number; seed: number; ground: number }) {
   const frond = useMemo(() => frondTexture(), []);
   const bark = useMemo(() => rep(barkTexture(), 6, 1), []);
-  const { trunk, fronds } = useMemo(() => {
+  const { trunk, fronds, top } = useMemo(() => {
     const r = rng(seed * 31);
     const lean = (r() - 0.5) * 1.6, hgt = 4.4 + r() * 1.6, dir = r() * 6.28;
     const pts = [0, 0.33, 0.66, 1].map((t) => new THREE.Vector3(Math.cos(dir) * lean * t * t * 1.2, t * hgt, Math.sin(dir) * lean * t * t * 1.2));
-    const trunk = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 14, 0.15, 8);
-    const top = pts[3];
-    const fronds = Array.from({ length: 10 }, (_, i) => ({ a: (i / 10) * Math.PI * 2 + r() * 0.3, tilt: 0.35 + r() * 0.5, s: 0.85 + r() * 0.4, top }));
-    return { trunk, fronds };
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const segs = 40, radial = 10;
+    const trunk = new THREE.TubeGeometry(curve, segs, 0.17, radial);
+    // taper toward the crown, flare at the root, and ring the bark where old fronds fell
+    const p = trunk.attributes.position as THREE.BufferAttribute, c = new THREE.Vector3(), v = new THREE.Vector3();
+    for (let s = 0; s <= segs; s++) {
+      const t = s / segs;
+      curve.getPointAt(t, c);
+      const k = (1 - 0.42 * t) * (1 + 0.5 * Math.pow(1 - t, 6)) * (1 + 0.07 * Math.max(0, Math.sin(t * hgt * 9)));
+      for (let j = 0; j <= radial; j++) {
+        const i = s * (radial + 1) + j;
+        v.fromBufferAttribute(p, i).sub(c).multiplyScalar(k).add(c);
+        p.setXYZ(i, v.x, v.y, v.z);
+      }
+    }
+    trunk.computeVertexNormals();
+    const fronds = [
+      // the live crown: fronds rising and arching out
+      ...Array.from({ length: 9 }, (_, i) => ({ a: (i / 9) * Math.PI * 2 + r() * 0.35, lift: 0.25 + r() * 0.35, s: 0.95 + r() * 0.3, dead: false })),
+      // an older lower ring drooping under its own weight
+      ...Array.from({ length: 6 }, (_, i) => ({ a: (i / 6) * Math.PI * 2 + 0.5 + r() * 0.3, lift: -0.25 - r() * 0.2, s: 0.9 + r() * 0.2, dead: false })),
+      // a few brown dead fronds hanging against the trunk
+      ...Array.from({ length: 3 }, (_, i) => ({ a: (i / 3) * Math.PI * 2 + r(), lift: -1.05 - r() * 0.2, s: 0.7, dead: true })),
+    ];
+    return { trunk, fronds, top: pts[3] };
   }, [seed]);
   const fg = useMemo(() => {
-    const g = new THREE.PlaneGeometry(2.9, 1.15, 8, 2);
-    g.translate(1.45, 0, 0);
+    // lies flat (length along +x, width along z), folds along its midrib, narrows to the tip and arches down
+    const L = 3.0, g = new THREE.PlaneGeometry(L, 1.1, 14, 4);
+    g.rotateX(-Math.PI / 2);
+    g.translate(L / 2, 0, 0);
     const p = g.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) - Math.pow(p.getX(i) / 2.9, 2) * 1.35);
+    for (let i = 0; i < p.count; i++) {
+      const t = p.getX(i) / L, w = p.getZ(i);
+      const zz = w * (1 - 0.75 * t) * Math.min(1, t * 6 + 0.25);
+      p.setZ(i, zz);
+      p.setY(i, Math.sin(t * Math.PI * 0.55) * 0.55 - Math.pow(t, 2.2) * 1.5 - Math.abs(zz) * 0.32);
+    }
     g.computeVertexNormals();
     return g;
   }, []);
   return (
     <group position={[x, ground, z]}>
-      <mesh geometry={trunk} castShadow><meshStandardMaterial map={bark} color="#b49a7c" roughness={0.95} /></mesh>
-      {[0, 2.1, 4.2].map((a) => <mesh key={a} position={[fronds[0].top.x + Math.cos(a) * 0.17, fronds[0].top.y - 0.18, fronds[0].top.z + Math.sin(a) * 0.17]} castShadow><sphereGeometry args={[0.14, 12, 10]} /><meshStandardMaterial color="#5a4128" roughness={0.7} /></mesh>)}
+      <mesh geometry={trunk} castShadow><meshStandardMaterial map={bark} color="#a8907a" roughness={0.95} /></mesh>
+      {[0, 2.1, 4.2].map((a) => <mesh key={a} position={[top.x + Math.cos(a) * 0.15, top.y - 0.2, top.z + Math.sin(a) * 0.15]} castShadow><sphereGeometry args={[0.12, 12, 10]} /><meshStandardMaterial color="#4f3a22" roughness={0.7} /></mesh>)}
       {fronds.map((f, i) => (
-        <mesh key={i} geometry={fg} position={f.top} rotation={[0, f.a, f.tilt]} scale={f.s} castShadow>
-          <meshStandardMaterial map={frond} alphaTest={0.4} side={THREE.DoubleSide} roughness={0.8} color="#ffffff" />
+        <mesh key={i} geometry={fg} position={[top.x, top.y - (f.dead ? 0.25 : 0.05), top.z]} rotation={[0, f.a, f.lift]} scale={f.s} castShadow>
+          <meshStandardMaterial map={frond} alphaTest={0.4} side={THREE.DoubleSide} roughness={0.8} color={f.dead ? "#9a7a4e" : "#e4ecd0"} />
         </mesh>
       ))}
     </group>
@@ -654,8 +767,9 @@ function Carnival() {
         <mesh key={i} position={[x, 2.4, z]} castShadow><cylinderGeometry args={[0.07, 0.09, 4.6 + (i === 1 ? 0.6 : 0), 8]} /><meshStandardMaterial color="#5a4330" roughness={0.9} /></mesh>
       ))}
       {/* pier */}
-      <group position={[-7.6, 0.55, 13.5]}>
-        {Array.from({ length: 22 }).map((_, i) => (
+      {/* starts on the beach and runs out over the water, so it is plainly the island's landing stage */}
+      <group position={[PIER.x, 0.62, PIER.z]}>
+        {Array.from({ length: 20 }).map((_, i) => (
           <mesh key={i} position={[0, 0, i * 0.55]} receiveShadow castShadow><boxGeometry args={[2.3, 0.12, 0.5]} /><meshStandardMaterial color="#9a7550" map={plank} normalMap={plankN} roughness={0.85} /></mesh>
         ))}
         {Array.from({ length: 8 }).map((_, i) => [-1, 1].map((s) => (
@@ -665,8 +779,8 @@ function Carnival() {
       </group>
       {palms.map((p) => <Palm key={p.s} x={p.x} z={p.z} ground={p.g} seed={p.s} />)}
 
-      <Debris h={carnivalHeight} seed={7} count={compact ? 24 : 55} radius={[10, 16]} tint="#b6a08a" />
-      <ShoreGeology h={carnivalHeight} seed={63} tint="#827d69" />
+      <Debris h={carnivalHeight} seed={7} count={compact ? 14 : 30} radius={[11, 16]} tint="#a89a86" sink={0.45} maxSize={0.32} />
+      <ShoreGeology h={carnivalHeight} seed={63} tint="#9a8f78" />
       <CoastalGrass />
       <Blob x={WHEEL.x} y={1.08} z={WHEEL.z} sx={10} sz={6} o={0.42} />
       <Blob x={-5.2} y={0.95} z={5.4} sx={7.5} sz={7.5} o={0.4} />

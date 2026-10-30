@@ -41,7 +41,7 @@ export default function VoyageRail() {
     <nav className={styles.rail} data-show={show} aria-label="Voyage stops">
       <ol>
         {STOPS.map((s) => (
-          <li key={s.id}>
+          <li key={s.id} data-stop={s.id}>
             <a href={`#${s.id}`} aria-current={active === s.id ? "location" : undefined} tabIndex={show ? 0 : -1}>
               <span className={styles.label}><b>{s.day}</b> {s.label}</span>
               <span className={styles.dot} aria-hidden="true" />
