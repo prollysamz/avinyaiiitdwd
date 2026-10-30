@@ -1,0 +1,25 @@
+# dependencies and build output
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# local tooling
+.claude/
+.env*
+npm-debug.log*
+
+# Blender working files: the .py scripts in blender/ regenerate the shipped .glb models
+blender/*.blend
+blender/*.blend1
+blender/*.log
+blender/__pycache__/
+blender/previews/
+blender/backups/
+# third-party originals (check licences before redistributing)
+blender/originals/
+
+# stray local artefacts
+--fast1
+screen.png

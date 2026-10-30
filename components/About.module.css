@@ -1,0 +1,91 @@
+/* Three poster panels, each in its chapter's own palette. The island breaks out of the top edge. */
+.section {
+  position: relative; overflow: hidden; color: #f6f1e6;
+  padding: clamp(80px, 10vw, 150px) 0 clamp(80px, 10vw, 140px);
+  background:
+    radial-gradient(38% 34% at 14% 78%, #e9784540, transparent 70%),
+    radial-gradient(38% 34% at 50% 82%, #ff2ea538, transparent 70%),
+    radial-gradient(38% 34% at 88% 78%, #ffbd4a38, transparent 70%),
+    linear-gradient(180deg, #0c2227 0%, #123036 55%, #1a2c3a 100%);
+}
+.wrap { position: relative; width: min(1280px, calc(100% - 48px)); margin: 0 auto; }
+
+.intro { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 28px clamp(32px, 7vw, 110px); align-items: end; margin-bottom: clamp(64px, 9vw, 130px); }
+.intro h2 { font-family: var(--font-sans), sans-serif; font-weight: 800; font-size: clamp(2.6rem, 6vw, 5.2rem); line-height: 0.98; letter-spacing: -0.045em; margin: 0; max-width: 11ch; }
+.hot { font-style: italic; padding-right: 0.08em; background: linear-gradient(95deg, #ffb178 0%, #ff6fc0 52%, #ffd27d 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.intro p { font-size: clamp(1.05rem, 1.5vw, 1.25rem); line-height: 1.6; color: #dbe6e2; max-width: 46ch; }
+
+.islands { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(22px, 3vw, 44px); align-items: start; }
+.island:nth-child(2) { margin-top: clamp(28px, 4vw, 64px); }  /* the middle island sits lower, so the row reads as a skyline, not a table */
+
+.card { position: relative; display: grid; color: inherit; text-decoration: none; isolation: isolate; }
+
+/* ---------- the sky behind each island (starts below the art's top, so the island overlaps it) */
+.sky { position: absolute; inset: 20% 0 0 0; z-index: -1; overflow: hidden; background: var(--sky); transition: filter 0.3s; }
+.sky::before, .sky::after { content: ""; position: absolute; pointer-events: none; }
+.card:hover .sky, .card:focus-visible .sky { filter: saturate(1.18) brightness(1.06); }
+
+/* ---------- the island itself */
+.art { display: flex; align-items: flex-end; justify-content: center; aspect-ratio: 1 / 1; width: 112%; margin: 0 -6% -16%; }
+.art img { width: auto; height: auto; max-width: 100%; max-height: 100%; filter: drop-shadow(0 26px 24px rgb(0 0 0 / 0.42)); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.card:hover .art img, .card:focus-visible .art img { transform: translateY(-12px) scale(1.02); }
+
+/* ---------- the copy */
+.text { position: relative; display: grid; gap: 8px; padding: 0 clamp(20px, 2.2vw, 32px) clamp(26px, 2.6vw, 36px); }
+.when { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 0.95rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.when i { font-style: normal; font-weight: 600; letter-spacing: 0.04em; text-transform: none; font-size: 1rem; opacity: 0.95; }
+.when::before { content: ""; width: 28px; height: 4px; background: currentColor; }
+.name { margin: 2px 0 0; line-height: 1.12; text-wrap: balance; }
+.theme { font-weight: 700; font-size: 1.05rem; }
+.blurb { font-size: 1rem; line-height: 1.55; opacity: 0.92; max-width: 34ch; }
+
+/* ================= I · The Last Outpost: dusty sun over dunes ================= */
+.island[data-island="0"] { --sky: linear-gradient(180deg, #f9d393 0%, #ee9a58 34%, #c2582f 66%, #5e2418 100%); }
+.island[data-island="0"] .sky::before { width: 62%; aspect-ratio: 1; left: 19%; top: 6%; border-radius: 50%; background: radial-gradient(circle, #fff5d6 0 18%, #ffd99a 19% 34%, #ffd99a00 62%); }
+.island[data-island="0"] .sky::after { left: 0; right: 0; bottom: 0; height: 46%; background: linear-gradient(180deg, #8b3a22, #4a1b12); clip-path: polygon(0 52%, 14% 30%, 30% 50%, 50% 18%, 68% 46%, 84% 26%, 100% 44%, 100% 100%, 0 100%); }
+.island[data-island="0"] .when { color: #5a2412; }
+.island[data-island="0"] .when i { color: #5a2412; }
+.island[data-island="0"] .name { font-family: var(--font-orbit), sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; font-size: clamp(1.25rem, 1.9vw, 1.7rem); color: #fff1d6; text-shadow: 0 2px 0 #4a1b12; }
+.island[data-island="0"] .theme { color: #ffd9a3; }
+.island[data-island="0"] .blurb { color: #ffe9cc; }
+.island[data-island="0"] .text { color: #fff1d6; }
+.island[data-island="0"] .when { color: #ffdca8; }
+.island[data-island="0"] .when i { color: #ffdca8; }
+
+/* ================= II · The Pandemonium: striped sun over a neon grid ================= */
+.island[data-island="1"] { --sky: linear-gradient(180deg, #12033a 0%, #4a1486 38%, #d8288c 70%, #28084e 100%); }
+.island[data-island="1"] .sky::before { width: 58%; aspect-ratio: 1; left: 21%; top: 8%; border-radius: 50%; background: linear-gradient(180deg, #ffe66d 10%, #ff2e8a 85%);
+  -webkit-mask-image: linear-gradient(#000 0 52%, transparent 52% 57%, #000 57% 66%, transparent 66% 72%, #000 72% 80%, transparent 80% 86%, #000 86% 93%, transparent 93% 96%, #000 96%);
+  mask-image: linear-gradient(#000 0 52%, transparent 52% 57%, #000 57% 66%, transparent 66% 72%, #000 72% 80%, transparent 80% 86%, #000 86% 93%, transparent 93% 96%, #000 96%); }
+.island[data-island="1"] .sky::after { left: -20%; right: -20%; bottom: 0; height: 40%; transform-origin: 50% 100%; transform: perspective(260px) rotateX(58deg);
+  background:
+    linear-gradient(180deg, #28084e00, #28084e 92%),
+    repeating-linear-gradient(90deg, #ff59b8 0 2px, transparent 2px 44px),
+    repeating-linear-gradient(0deg, #4ff0ff 0 2px, transparent 2px 30px); }
+.island[data-island="1"] .text { color: #f3f6ff; }
+.island[data-island="1"] .when, .island[data-island="1"] .when i { color: #7df3ff; }
+.island[data-island="1"] .name { font-family: var(--font-cyber), sans-serif; font-weight: 700; font-style: italic; text-transform: uppercase; letter-spacing: -0.01em; font-size: clamp(1.5rem, 2.3vw, 2.1rem); color: #eefdff; text-shadow: 2px 2px 0 #c42a82, -1px -1px 0 #35c3d2, 0 0 22px #35c3d266; }
+.island[data-island="1"] .theme { color: #ffb3e1; }
+.island[data-island="1"] .blurb { color: #e6e9ff; }
+
+/* ================= III · The Carnival Island: sunset, lantern lights, water ================= */
+.island[data-island="2"] { --sky: linear-gradient(180deg, #33195a 0%, #bb406d 36%, #ff9b50 62%, #5c1c3e 100%); }
+.island[data-island="2"] .sky::before { left: -4%; right: -4%; top: 5%; height: 26px;
+  background: radial-gradient(circle, #ffe9a8 0 3px, #ffc75a88 4px 7px, transparent 9px) 0 50% / 26px 26px repeat-x;
+  filter: drop-shadow(0 0 6px #ffc75a); transform: rotate(-2deg); }
+.island[data-island="2"] .sky::after { left: 0; right: 0; bottom: 0; height: 36%;
+  background:
+    repeating-linear-gradient(180deg, #ffd08a30 0 2px, transparent 2px 11px),
+    linear-gradient(180deg, #b0386a 0%, #4e1736 100%); }
+.island[data-island="2"] .text { color: #fff3dc; }
+.island[data-island="2"] .when, .island[data-island="2"] .when i { color: #ffd884; }
+.island[data-island="2"] .name { font-family: var(--font-carnival), serif; font-weight: 400; font-size: clamp(1.4rem, 2.1vw, 1.95rem); color: #ffe7b4; text-shadow: 2px 3px 0 #7a2c26; line-height: 1.2; }
+.island[data-island="2"] .theme { color: #ffc7a0; }
+.island[data-island="2"] .blurb { color: #ffe9d0; }
+
+@media (max-width: 900px) {
+  .intro { grid-template-columns: 1fr; }
+  .islands { grid-template-columns: 1fr; gap: clamp(64px, 16vw, 110px); max-width: 520px; margin: 0 auto; }
+  .island:nth-child(2) { margin-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .art img, .sky { transition: none; } .card:hover .art img { transform: none; } }

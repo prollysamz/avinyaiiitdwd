@@ -1,0 +1,13 @@
+.rail { position: fixed; right: clamp(14px, 2vw, 32px); top: 50%; transform: translateY(-50%); z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+.rail[data-show="true"] { opacity: 1; pointer-events: auto; }
+.rail ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; position: relative; }
+.rail ol::before { content: ""; position: absolute; right: 21px; top: 22px; bottom: 22px; width: 1px; background: #ffffff40; }
+.rail a { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-height: 44px; color: #fff; }
+.label { font-size: 0.85rem; line-height: 1.2; text-align: right; padding: 6px 10px; background: #08141cd9; opacity: 0; transform: translateX(6px); transition: opacity 0.2s, transform 0.2s; white-space: nowrap; }
+.label b { display: block; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: #9ce8df; }
+.dot { position: relative; width: 12px; height: 12px; margin-right: 15px; border-radius: 50%; border: 2px solid #fff; background: #08141c; transition: background 0.2s, transform 0.2s; }
+.rail a:hover .label, .rail a:focus-visible .label, .rail a[aria-current="location"] .label { opacity: 1; transform: none; }
+.rail a[aria-current="location"] .dot { background: #9ce8df; border-color: #9ce8df; transform: scale(1.25); }
+.rail a:hover .dot { background: #fff; }
+@media (max-width: 900px) { .rail { display: none; } }
+@media (prefers-reduced-motion: reduce) { .rail, .label, .dot { transition: none; } }
