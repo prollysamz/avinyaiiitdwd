@@ -188,7 +188,10 @@ export function createSkyMaterial() {
           vec3 stars = starLayer(starUV, vec2(900.0, 450.0), 0.971, 1.2)
             + starLayer(starUV + vec2(0.173, 0.271), vec2(360.0, 180.0), 0.986, 1.7);
           vec3 axis = normalize(vec3(0.35, 0.75, -0.55));
-          float band = exp(-pow(dot(d, axis) * 3.2, 2.0));
+          // GLSL pow is undefined for negative bases, even with exponent 2.
+          // Invalid sky pixels spread through PMREM lighting and bloom.
+          float bandDistance = dot(d, axis) * 3.2;
+          float band = exp(-(bandDistance * bandDistance));
           float mw = band * (0.25 + 0.75 * fbm2(d.xz * 5.0 + d.y * 3.0)) * (0.55 + 0.45 * vn3(d * 9.0));
           float dust = smoothstep(0.35, 0.72, vn3(d * 17.0 + 5.0));
           vec3 neb = mix(vec3(0.014, 0.019, 0.03), vec3(0.026, 0.024, 0.032), vn3(d * 4.0 + 2.0)) * mw * (0.6 + dust * 0.4);

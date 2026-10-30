@@ -441,7 +441,12 @@ function buildTowers() {
 /** A searchlight shaft: bright at the lamp, fading out along its length, so it reads as light in haze, not a solid cone. */
 const beamVertex = /* glsl */ `varying float vAlong; void main(){ vAlong = uv.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const beamFragment = /* glsl */ `varying float vAlong; uniform vec3 uColor; uniform float uOpacity;
-  void main(){ float a = pow(1.0 - vAlong, 1.6) * uOpacity; gl_FragColor = vec4(uColor * a, a); }`;
+  void main(){
+    // Interpolated UVs can overshoot at beam edges. A negative fractional
+    // pow base produces NaNs, which bloom spreads across the whole screen.
+    float a = pow(clamp(1.0 - vAlong, 0.0, 1.0), 1.6) * uOpacity;
+    gl_FragColor = vec4(uColor * a, a);
+  }`;
 /** One rooftop fixture, three heads evenly spaced around it, sweeping together like a club light. */
 const SEARCHLIGHTS = ["#ff2ea6", "#27e6ff", "#ffc93c"];
 const SWEEP = { tilt: 0.62, speed: 0.3 };

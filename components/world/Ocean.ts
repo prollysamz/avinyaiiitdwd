@@ -138,7 +138,10 @@ export class Ocean extends THREE.Mesh {
           float pulse = sin(aft * 7.5 - time * 4.4 + abs(boatLocal.x) * 3.0);
           N = normalize(N + vec3(sign(boatLocal.x) * pulse, 0.0, pulse * 0.35) * wake * 0.13 * uWakeStrength);
 
-          float NV = max(dot(N, V), 0.0);
+          // Normalized dot products can round just above 1 on the GPU.
+          // A negative Fresnel pow base produces NaNs that bloom spreads
+          // across the entire frame as the camera turns between islands.
+          float NV = clamp(dot(N, V), 0.0, 1.0);
           float F = 0.02037 + 0.97963 * pow(1.0 - NV, 5.0);
 
           vec2 distortion = N.xz * (0.002 + 0.6 / dist) * distortionScale;
@@ -161,14 +164,15 @@ export class Ocean extends THREE.Mesh {
 
           // GGX sun glitter with derivative filtering to keep tiny facets stable.
           vec3 H = normalize(V + sunDirection);
-          float NH = max(dot(N, H), 0.0);
-          float NL = max(dot(N, sunDirection), 0.0);
+          float NH = clamp(dot(N, H), 0.0, 1.0);
+          float NL = clamp(dot(N, sunDirection), 0.0, 1.0);
           float roughness = 0.14 + smoothstep(25.0, 220.0, dist) * 0.09;
           float alpha2 = pow(roughness, 4.0) + min(dot(fwidth(N), fwidth(N)) * 0.08, 0.015);
           float denom = NH * NH * (alpha2 - 1.0) + 1.0;
           float D = alpha2 / max(3.141593 * denom * denom, 0.00001);
           float visibility = 0.5 / max(NL * sqrt(NV * NV * (1.0 - alpha2) + alpha2) + NV * sqrt(NL * NL * (1.0 - alpha2) + alpha2), 0.001);
-          float FH = 0.02037 + 0.97963 * pow(1.0 - max(dot(V, H), 0.0), 5.0);
+          float VH = clamp(dot(V, H), 0.0, 1.0);
+          float FH = 0.02037 + 0.97963 * pow(1.0 - VH, 5.0);
           vec3 glitter = sunColor * min(D * visibility * FH * NL, 8.0) * uGlint * 1.8 * getShadowMask();
           glitter *= smoothstep(0.0, 0.05, sunDirection.y + 0.05);
 
